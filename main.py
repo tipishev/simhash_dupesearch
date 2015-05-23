@@ -24,6 +24,8 @@ DOCS_DIRECTORY = "./docs/"
 VECTORS_FILE = 'vectors.pkl'
 DISTANCES_FILE = 'distances.pkl'
 DOCSTATS_FILE = 'docstats.pkl'
+SORTED_FILE = 'sorted.pkl'
+
 
 # algorithm stuff
 RANDOM_SEED = 42
@@ -202,6 +204,16 @@ def load_docstats(filename=DOCSTATS_FILE):
         log.info('loaded the docstats')
         return load(f)
 
+def dump_sorted(sorted_array, filename=SORTED_FILE):
+    with open(filename, 'wb') as f:
+        dump(sorted_array, f)
+    log.info('saved the sorted array')
+
+def load_sorted(filename=SORTED_FILE):
+    with open(filename, 'rb') as f:
+        log.info('loaded the sorted array')
+        return load(f)
+
 def handle_file(filename, vectors):
     words = file_to_words(filename)
     hash_vector = to_hash_vector(words=words, length=len(vectors))
@@ -218,8 +230,20 @@ def collect_doc_stats(directory):
             stats[fullpath] = handle_file(fullpath, vectors)
     return stats
 
+def calculate_max_window(array, max_diff=0.2):
+    wordcounts = [a[0] for a in array]
+    max_size = 0
+    current_min = 0
+    size = 0
+    print(wordcounts[4:35 ])
+
+
 def main():
-    pass
+    array = load_sorted()
+    calculate_max_window(array)
+
+
+
 
 
 if __name__ == '__main__':
