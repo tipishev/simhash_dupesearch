@@ -20,7 +20,7 @@ from cPickle import dump, load
 
 # files stuff
 LOGFILE = "main.log"
-DOCS_DIRECTORY = "../docs/"
+DOCS_DIRECTORY = "./docs/"
 VECTORS_FILE = 'vectors.pkl'
 DISTANCES_FILE = 'distances.pkl'
 DOCSTATS_FILE = 'docstats.pkl'
@@ -207,9 +207,19 @@ def handle_file(filename, vectors):
     hash_vector = to_hash_vector(words=words, length=len(vectors))
     return {'wordcount': len(words), 'simhash': to_simhash(hash_vector, vectors)}
 
+def collect_doc_stats(directory):
+    vectors = load_vectors()
+    stats = dict()
+    for (dirpath, dirnames, filenames) in walk(directory):
+        total_filecount = len(filenames)
+        for count, filename in enumerate(filenames):
+            print("processing #{} of {} files".format(count, total_filecount))
+            fullpath = dirpath+filename
+            stats[fullpath] = handle_file(fullpath, vectors)
+    return stats
+
 def main():
-    # vectors = load_vectors()
-    
+    pass
 
 
 if __name__ == '__main__':
