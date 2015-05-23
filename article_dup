@@ -1,0 +1,30 @@
+iChanged in version 2.3: The protocol parameter was added.
+
+pickle.loads(string)
+Read a pickled object hierarchy from a string. Characters in the string past the pickled object’s representation are ignored.
+
+The pickle module also defines three exceptions:
+
+exception pickle.PickleError
+A common base class for the other exceptions defined below. This inherits from Exception.
+
+exception pickle.PicklingError
+This exception is raised when an unpicklable object is passed to the dump() method.
+
+exception pickle.UnpicklingError
+This exception is raised when there is a problem unpickling an object. Note that other exceptions may also be raised during unpickling, including (but not necessarily limited to) AttributeError, EOFError, ImportError, and IndexError.
+
+The pickle module also exports two callables [2], Pickler and Unpickler:
+
+class pickle.Pickler(file[, protocol])
+This takes a file-like object to which it will write a pickle data stream.
+
+If the protocol parameter is omitted, protocol 0 is used. If protocol is specified as a negative value or HIGHEST_PROTOCOL, the highest protocol version will be used.
+
+Changed in version 2.3: Introduced the protocol parameter.
+
+file must have a write() method that accepts a single string argument. It can thus be an open file object, a StringIO object, or any other custom object that meets this interface.
+
+Pickler objects define one (or two) public methods:
+
+dump(obj)
