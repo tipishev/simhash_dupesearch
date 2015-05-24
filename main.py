@@ -13,12 +13,10 @@ from random import random, seed as set_random_seed
 import logging
 from math import sqrt
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from copy import deepcopy
 from cPickle import dump, load
 
 
-# files stuff
 LOGFILE = "main.log"
 DOCS_DIRECTORY = "./docs/"
 VECTORS_FILE = 'vectors.pkl'
@@ -27,13 +25,16 @@ DOCSTATS_FILE = 'docstats.pkl'
 SORTED_FILE = 'sorted.pkl'
 
 
-# algorithm stuff
 RANDOM_SEED = 42
 NUMBER_OF_DIMENSIONS = 42  # a.k.a. N
 NUMBER_OF_VECTORS = 64  # a.k.a. M
 
-def list_without(list_, index):
-    return list_[:index] + list_[(index+1):]
+
+# silly utils
+
+def list_without(list_, k):
+    ''' return a list without element at position k '''
+    return list_[:k] + list_[(k+1):]
 
 
 # string stuff
@@ -73,14 +74,15 @@ def to_hash_vector(words, length):
             result[position] += +1 if char == '1' else -1
     return result
 
-def to_simhash(doc_hash_vector, vectors):
-    return ''.join(['1' if scalar(doc_hash_vector, v) > 0 else '0' for v in vectors])
+
+def to_simhash(doc_hash, vectors):
+    return ''.join(['1' if scalar(doc_hash, v) > 0 else '0' for v in vectors])
+
 
 # vector stuff
 
 
 def create_zero_vector(size):
-    # return [0 for _ in range(size)]
     return [0]*size
 
 
@@ -96,8 +98,10 @@ def to_vector(point1, point2):
 def add(vector1, vector2):
     return [sum(e) for e in zip(vector1, vector2)]
 
+
 def scalar(vector1, vector2):
     return sum([e[0]*e[1] for e in zip(vector1, vector2)])
+
 
 def scale(vector, k):
     return [k*e for e in vector]
@@ -110,7 +114,8 @@ def get_length(vector):
 def reflect(vector):
     return [-e for e in vector]
 
-# randomization magic
+
+# vector randomization magic
 
 
 def get_random_vector(n):
@@ -132,10 +137,10 @@ def generate_random_unit_vectors(m, n):
 
 
 def spread_vectors(vectors, number_of_iterations=50):
-    '''spreads vectors evenly on an n-dimensional hypersphere '''
+    '''spreads vectors evenly on an n-dimensional sphere '''
 
     for iteration in range(number_of_iterations):
-        print("iteration #{} of {}".format(iteration, number_of_iterations))
+        log.info("iteration #{} of {}".format(iteration, number_of_iterations))
 
         snapshot = deepcopy(vectors)  # preserve the past to build the future
         for index, old_vector in enumerate(snapshot):
@@ -151,12 +156,13 @@ def spread_vectors(vectors, number_of_iterations=50):
     return vectors
 
 
-def plot_3d_vectors(vectors, title='vectors'):
-    x, y, z = zip(*vectors)
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x, y, z)
-    plt.show()
+# def plot_3d_vectors(vectors, title='vectors'):
+#     from mpl_toolkits.mplot3d import Axes3D
+#     x, y, z = zip(*vectors)
+#     fig = plt.figure()
+#     ax = fig.add_subplot(111, projection='3d')
+#     ax.scatter(x, y, z)
+#     plt.show()
 
 
 def plot_2d_vectors(vectors, title='vectors'):
@@ -169,7 +175,8 @@ def plot_2d_vectors(vectors, title='vectors'):
     plt.show()
 
 
-def dump_vectors(m=NUMBER_OF_VECTORS, n=NUMBER_OF_DIMENSIONS, filename=VECTORS_FILE):
+def dump_vectors(m=NUMBER_OF_VECTORS, n=NUMBER_OF_DIMENSIONS,
+                 filename=VECTORS_FILE):
     ''' generate m well-spread n-dimensional vectors and dump 'em to a file '''
     vectors = generate_random_unit_vectors(m=m, n=n)
     vectors = spread_vectors(vectors, number_of_iterations=100)
@@ -177,21 +184,25 @@ def dump_vectors(m=NUMBER_OF_VECTORS, n=NUMBER_OF_DIMENSIONS, filename=VECTORS_F
         dump(vectors, f)
     log.info('saved the vectors')
 
+
 def load_vectors(filename=VECTORS_FILE):
     with open(filename, 'rb') as f:
         log.info('loaded the vectors')
         return load(f)
 
+
 def dump_distances(distances, filename=DISTANCES_FILE):
-    ''' save a dict with hamming distances between files to a file (poor man's hash) '''
+    ''' save a dict with hamming distances between files (poor man's hash) '''
     with open(filename, 'wb') as f:
         dump(distances, f)
     log.info('saved the distances')
+
 
 def load_distances(filename=DISTANCES_FILE):
     with open(filename, 'rb') as f:
         log.info('loaded the distances')
         return load(f)
+
 
 def dump_docstats(docstats, filename=DOCSTATS_FILE):
     ''' save a dict with docstats for each file '''
@@ -199,52 +210,67 @@ def dump_docstats(docstats, filename=DOCSTATS_FILE):
         dump(docstats, f)
     log.info('saved the docstats')
 
+
 def load_docstats(filename=DOCSTATS_FILE):
     with open(filename, 'rb') as f:
         log.info('loaded the docstats')
         return load(f)
+
 
 def dump_sorted(sorted_array, filename=SORTED_FILE):
     with open(filename, 'wb') as f:
         dump(sorted_array, f)
     log.info('saved the sorted array')
 
+
 def load_sorted(filename=SORTED_FILE):
     with open(filename, 'rb') as f:
         log.info('loaded the sorted array')
         return load(f)
 
+
 def handle_file(filename, vectors):
     words = file_to_words(filename)
     hash_vector = to_hash_vector(words=words, length=len(vectors))
-    return {'wordcount': len(words), 'simhash': to_simhash(hash_vector, vectors)}
+    return {'wordcount': len(words),
+            'simhash': to_simhash(hash_vector, vectors)}
+
 
 def collect_doc_stats(directory):
     vectors = load_vectors()
     stats = dict()
     for (dirpath, dirnames, filenames) in walk(directory):
-        total_filecount = len(filenames)
+        filecount = len(filenames)
         for count, filename in enumerate(filenames):
-            print("processing #{} of {} files".format(count, total_filecount))
+            log.info("processing #{} of {} files".format(count, filecount))
             fullpath = dirpath+filename
             stats[fullpath] = handle_file(fullpath, vectors)
     return stats
 
-def calculate_max_window(array, max_diff=0.2):
-    wordcounts = [a[0] for a in array]
-    max_size = 0
-    current_min = 0
-    size = 0
-    print(wordcounts[4:35 ])
+
+def absolute_relative_difference(value1, value2):
+    return abs(float(value2-value1))/value1
+
+
+def generate_windows(array, max_gap=0.20):
+    ''' yields lists of indices, whose values in the array are within gap '''
+    min_index = min_value = None
+    window = []
+    for index, value in enumerate(array):
+        if min_index is None:
+            min_index, min_value = index, value
+            window.append(index)
+        if absolute_relative_difference(value, min_value) > max_gap:
+            yield window
+            window = [index]
+        else:
+            window.append(index)
+    yield window
 
 
 def main():
     array = load_sorted()
-    calculate_max_window(array)
-
-
-
-
+    wordcounts = [a[0] for a in array]
 
 if __name__ == '__main__':
     logging.basicConfig(filename=LOGFILE, level=logging.INFO)
