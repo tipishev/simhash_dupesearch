@@ -24,6 +24,7 @@ VECTORS_FILE = 'vectors.pkl'
 DISTANCES_FILE = 'distances.pkl'
 DOCSTATS_FILE = 'docstats.pkl'
 SORTED_FILE = 'sorted.pkl'
+DUPES_FILE = 'dupes.pkl'
 
 
 RANDOM_SEED = 42
@@ -186,6 +187,9 @@ def dump_vectors(m=NUMBER_OF_VECTORS, n=NUMBER_OF_DIMENSIONS,
     log.info('saved the vectors')
 
 
+''' Yes, I'm lazy to combine load/dump functions '''
+
+
 def load_vectors(filename=VECTORS_FILE):
     with open(filename, 'rb') as f:
         log.info('loaded the vectors')
@@ -230,6 +234,20 @@ def load_sorted(filename=SORTED_FILE):
         return load(f)
 
 
+def dump_dupes(dupes, filename=DUPES_FILE):
+    with open(filename, 'wb') as f:
+        dump(dupes, f)
+    log.info('saved the dupes')
+
+
+def load_dupes(filename=DUPES_FILE):
+    with open(filename, 'rb') as f:
+        log.info('loaded the dupes')
+        return load(f)
+
+# </lazyness>
+
+
 def handle_file(filename, vectors):
     words = file_to_words(filename)
     hash_vector = to_hash_vector(words=words, length=len(vectors))
@@ -254,7 +272,7 @@ def relative_change(old, new):
 
 
 def generate_windows(array, max_gap=0.20):
-    ''' yields lists of indices, whose values in the array are within the gap '''
+    ''' yields indices lists, whose array values are within the gap '''
     min_index = min_value = None
     window = []
     for index, value in enumerate(array):
@@ -273,11 +291,13 @@ def generate_windows(array, max_gap=0.20):
 
 
 def get_window_sizes(array, max_gap=0.20, filter_ones=False):
-    return sorted([len(w) for w in generate_windows(array, max_gap) if len(w) > 1 or not filter_ones])
+    return sorted([len(w) for w in generate_windows(array, max_gap)
+                   if len(w) > 1 or not filter_ones])
 
 
 def get_number_of_comparisons(sizes):
     return [s*(s-1)/2 for s in sizes]
+
 
 def calculate_distances(docstats):
     wordcounts = [e[0] for e in docstats]
@@ -295,30 +315,55 @@ def calculate_distances(docstats):
                 print(len(distances))
     return distances
 
+
 def estimate_complexity(docstats, max_gap=0.2):
     wordcounts = [e[0] for e in docstats]
     sizes = get_window_sizes(wordcounts, max_gap=max_gap, filter_ones=True)
     print("the nontrivial comparison window sizes are: \n {}\n".format(sizes))
-    print(("the total number of comparisons required is {}, "
-           "which is less than the total number of atoms in the universe").format(
+    print(("the total number of comparisons required is {}, and if you read "
+           "this is less than the number of atoms in the universe").format(
                sum(get_number_of_comparisons(sizes))))
 
 
+def collect_dupes(sorted_array, distances, thresholds=[5, 10, 15]):
+    dupes = {key: {} for key in thresholds}
+    for counter, ((index1, index2), distance) in enumerate((distances.iteritems())):
+        print(counter)
+        filename1 = sorted_array[index1][1]['filename']
+        filename2 = sorted_array[index2][1]['filename']
+        for threshold in sorted(thresholds):
+            if distance <= threshold:  # ok, they are dupes
+                if filename1 in dupes[threshold]:  # have we seen this file?
+                    assert filename2 not in dupes[threshold][filename1]
+                    dupes[threshold][filename1].append(filename2)
+                elif filename2 in dupes[threshold]:  # maybe the other?
+                    assert filename1 not in dupes[threshold][filename2]
+                    dupes[threshold][filename2].append(filename1)
+                else:
+                    dupes[threshold][filename1] = [filename2]  # create new
+    return dupes
+
+def write_dupe_lists(dupes):
+    for threshold, threshold_dupes in dupes.iteritems():
+        with open("dupes_n{}.txt".format(threshold), 'wb') as f:
+            for main, secondary in threshold_dupes.iteritems():
+                f.write('Main document: {} \t Potential Duplicates:{}\n'.format(main, secondary))
+
+def write_dupe_sizes(dupes):
+    ''' because plotting in R is easier '''
+    for threshold, threshold_dupes in dupes.iteritems():
+        with open("sizes_n{}".format(threshold), 'wb') as f:
+            foo = [len(dupe) for dupe in threshold_dupes]
+            for bar in foo:
+                f.write("{}\n".format(bar))
 
 def main():
-    # load a precalculated and sorted array of (wordcount: {'simhash', 'filename'})
-    docstats = load_sorted()
-    # estimate_complexity(docstats)
-    # distances = calculate_distances(docstats)
-    # dump_distances(distances)
-    distances = load_distances()
-    counter = 0
-    for (index1, index2), distance in distances.iteritems():
-        print (docstats[index1][1]['filename'], docstats[index2][1]['filename'], distance)
-        counter += 1
-        if counter > 32:
-            break
+    # dupes = collect_dupes(load_sorted(), load_distances())
+    # dump_dupes(dupes)
+    # stats = load_docstats()
 
+    dupes = load_dupes()
+    write_dupe_lists(dupes)
 
 if __name__ == '__main__':
     logging.basicConfig(filename=LOGFILE, level=logging.INFO)
