@@ -15,6 +15,7 @@ from math import sqrt
 import matplotlib.pyplot as plt
 from copy import deepcopy
 from cPickle import dump, load
+from itertools import combinations
 
 
 LOGFILE = "main.log"
@@ -248,29 +249,76 @@ def collect_doc_stats(directory):
     return stats
 
 
-def absolute_relative_difference(value1, value2):
-    return abs(float(value2-value1))/value1
+def relative_change(old, new):
+    return float(new-old)/old
 
 
 def generate_windows(array, max_gap=0.20):
-    ''' yields lists of indices, whose values in the array are within gap '''
+    ''' yields lists of indices, whose values in the array are within the gap '''
     min_index = min_value = None
     window = []
     for index, value in enumerate(array):
         if min_index is None:
             min_index, min_value = index, value
             window.append(index)
-        if absolute_relative_difference(value, min_value) > max_gap:
+        diff = relative_change(min_value, value)
+        if diff > max_gap:
             yield window
+            min_index += 1
+            min_value = array[min_index]
             window = [index]
         else:
             window.append(index)
     yield window
 
 
+def get_window_sizes(array, max_gap=0.20, filter_ones=False):
+    return sorted([len(w) for w in generate_windows(array, max_gap) if len(w) > 1 or not filter_ones])
+
+
+def get_number_of_comparisons(sizes):
+    return [s*(s-1)/2 for s in sizes]
+
+def calculate_distances(docstats):
+    wordcounts = [e[0] for e in docstats]
+    distances = dict()
+    for indices_window in generate_windows(wordcounts):
+        if len(indices_window) > 1:
+            to_compare = combinations(indices_window, 2)
+            for pair in to_compare:
+                # filename1 = docstats[pair[0]][1]['filename']
+                # filename2 = docstats[pair[1]][1]['filename']
+                # print('will compare {} and {}'.format(filename1, filename2))
+                simhash1 = docstats[pair[0]][1]['simhash']
+                simhash2 = docstats[pair[1]][1]['simhash']
+                distances[pair] = hamming_distance(simhash1, simhash2)
+                print(len(distances))
+    return distances
+
+def estimate_complexity(docstats, max_gap=0.2):
+    wordcounts = [e[0] for e in docstats]
+    sizes = get_window_sizes(wordcounts, max_gap=max_gap, filter_ones=True)
+    print("the nontrivial comparison window sizes are: \n {}\n".format(sizes))
+    print(("the total number of comparisons required is {}, "
+           "which is less than the total number of atoms in the universe").format(
+               sum(get_number_of_comparisons(sizes))))
+
+
+
 def main():
-    array = load_sorted()
-    wordcounts = [a[0] for a in array]
+    # load a precalculated and sorted array of (wordcount: {'simhash', 'filename'})
+    docstats = load_sorted()
+    # estimate_complexity(docstats)
+    # distances = calculate_distances(docstats)
+    # dump_distances(distances)
+    distances = load_distances()
+    counter = 0
+    for (index1, index2), distance in distances.iteritems():
+        print (docstats[index1][1]['filename'], docstats[index2][1]['filename'], distance)
+        counter += 1
+        if counter > 32:
+            break
+
 
 if __name__ == '__main__':
     logging.basicConfig(filename=LOGFILE, level=logging.INFO)
